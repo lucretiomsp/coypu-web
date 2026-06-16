@@ -65,7 +65,8 @@
     setStatus('loading samples…');
     try {
       const info = await Audio.load('turboSamplesWeb');
-      setStatus(`loaded ${info.files} samples in ${info.folders} folders`);
+      const f = info.failed ? `, ${info.failed} failed` : '';
+      setStatus(`loaded ${info.loaded}/${info.files} samples in ${info.folders} folders${f}`);
       return true;
     } catch(e){
       loadingStarted = false;              // allow retry
