@@ -33,7 +33,7 @@
     const urls = {};
     for(const folder of Object.keys(manifest)){
       manifest[folder].forEach((file, idx) => {
-        urls[key(folder, idx)] = `${base}/${folder}/${file}`;
+       urls[key(folder, idx)] = `${base}/${folder}/${file}`;
       });
     }
 
