@@ -113,6 +113,41 @@
 
   onCodeChange(() => { compile(); });
 
+  // ── reference panels ──────────────────────────────────────────────
+  function populateRhythmPanel(){
+    const R = window.CoypuRhythms;
+    const el = $('rhythmList'); if(!el || !R) return;
+    const section = (label, items, render) =>
+      `<div class="group">${label}</div>` +
+      items.map(render).join('');
+    el.innerHTML =
+      section('generators', R.generators,
+        g => `<div><span class="nm">N ${g}</span></div>`) +
+      section('named (tiled to N, or asRhythm = 16)', R.namedRhythms,
+        n => `<div><span class="nm">${n}</span></div>`) +
+      (R.hexRhythms.length ? section('hexbeat presets', R.hexRhythms,
+        n => `<div><span class="nm">${n}</span></div>`) : '');
+  }
+
+  async function populateSamplePanel(){
+    const list = $('sampleList'); if(!list) return;
+    try {
+      const m = await Audio.peekManifest('turboSamplesWeb');
+      const names = Object.keys(m).sort();
+      list.innerHTML = names.map(f =>
+        `<li><span class="nm">${f}</span><span class="ct">${m[f].length}</span></li>`
+      ).join('');
+      const total = names.reduce((n, f) => n + m[f].length, 0);
+      const hint = $('samplesHint');
+      if(hint) hint.textContent = `· ${names.length} folders, ${total} files`;
+    } catch(e){
+      list.innerHTML = `<li class="muted">couldn't load list</li>`;
+    }
+  }
+
+  populateRhythmPanel();
+  populateSamplePanel();
+
   // initial render (no audio until first play)
   compile();
 
