@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>coypu · tone sequencer</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
+</head>
+<body>
+<header>
+  <h1>coypu<span class="dot">.</span>tone</h1>
+  <span class="sub">cascade syntax · polymetric · transpiler demo</span>
+</header>
+
+<textarea id="code">16 downbeats to: #bd.
+#bd level: 0.9.
+#rumba asRhythm to: #snare.
+#snare notes: #(38 38 40); durations: #(1 1 2); level: 0.6.
+'12caf1213' hexbeat to: #hat.
+#hat notes: 64; level: 0.4.</textarea>
+
+<div class="bar">
+  <button id="play">▶ play</button>
+  <button id="stop" class="ghost">■ stop</button>
+  <label class="tempo">bpm <input id="bpm" type="number" value="110" min="40" max="240"></label>
+</div>
+<div id="status">tap play to start audio</div>
+
+<div class="lanes" id="lanes"></div>
+
+<div class="legend">
+  <b>rhythm statements</b> create a sequencer bound to a track:<br>
+  <code>16 downbeats to: #bd</code> · <code>#rumba asRhythm to: #snare</code> · <code>'12caf1213' hexbeat to: #hat</code><br>
+  <b>parameter cascades</b> attach to an existing track:<br>
+  <code>#snare notes: #(38 38 40); durations: #(1 1 2); level: 0.6</code><br>
+  defaults — note <b>60</b>, duration <b>1</b> step, level <b>0.5</b>. arrays cycle per hit, independently.
+</div>
+
+<!-- modules load in dependency order; app.js wires everything -->
+<script src="src/rhythms.js"></script>
+<script src="src/transpiler.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/scheduler.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>

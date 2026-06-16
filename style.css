@@ -1,0 +1,58 @@
+:root{
+  --bg:#0b0e14; --panel:#121722; --ink:#e8eef7; --dim:#6b7689;
+  --line:#1f2733; --hit:#f5c518; --rest:#222b3a; --play:#3ddc97;
+  --mono:"SF Mono",ui-monospace,"Cascadia Code","JetBrains Mono",Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--mono); font-size:14px; line-height:1.5;
+  padding:24px; max-width:880px; margin:0 auto;
+}
+header{display:flex; align-items:baseline; gap:14px; margin-bottom:20px}
+h1{font-size:18px; font-weight:600; letter-spacing:.5px; margin:0}
+h1 .dot{color:var(--hit)}
+header .sub{color:var(--dim); font-size:12px}
+
+textarea{
+  width:100%; min-height:170px; resize:vertical;
+  background:var(--panel); color:var(--ink); border:1px solid var(--line);
+  border-radius:6px; padding:14px; font-family:var(--mono); font-size:14px;
+  line-height:1.7; tab-size:2;
+}
+textarea:focus{outline:none; border-color:var(--dim)}
+
+.bar{display:flex; gap:10px; align-items:center; margin:14px 0}
+button{
+  font-family:var(--mono); font-size:13px; cursor:pointer;
+  background:var(--hit); color:#1a1206; border:none; padding:9px 18px;
+  border-radius:5px; font-weight:600; letter-spacing:.3px;
+}
+button.ghost{background:transparent; color:var(--ink); border:1px solid var(--line)}
+button:active{transform:translateY(1px)}
+
+label.tempo{color:var(--dim); font-size:12px; margin-left:auto; display:flex; gap:8px; align-items:center}
+label.tempo input{
+  width:64px; background:var(--panel); border:1px solid var(--line);
+  color:var(--ink); border-radius:4px; padding:4px 6px; font-family:var(--mono);
+}
+
+#status{color:var(--dim); font-size:12px; min-height:18px; margin-top:4px}
+#status.err{color:#ff6b6b}
+
+.lanes{margin-top:22px; display:flex; flex-direction:column; gap:12px}
+.lane .head{display:flex; gap:10px; align-items:baseline; margin-bottom:4px}
+.lane .name{color:var(--hit); font-size:13px}
+.lane .meta{color:var(--dim); font-size:11px}
+.steps{display:flex; gap:3px; flex-wrap:wrap}
+.step{width:14px; height:18px; border-radius:2px; background:var(--rest)}
+.step.on{background:var(--hit)}
+.step.cursor{outline:2px solid var(--play); outline-offset:1px}
+
+.legend{color:var(--dim); font-size:11px; margin-top:20px; line-height:1.9}
+.legend code{color:var(--ink); background:var(--panel); padding:1px 5px; border-radius:3px}
+.legend b{color:var(--ink); font-weight:600}
+
+@media (prefers-reduced-motion: reduce){
+  button:active{transform:none}
+}
