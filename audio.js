@@ -1,56 +1,69 @@
-/* ════════════════════ Audio (Tone.js) ════════════════════
-   Voice stand-ins built from Tone synths so the page runs standalone.
-   To use real samples, replace buildKit() with Tone.Players and have
-   voiceFor(name) return (time, note, level) => player.start(time).
-   Exposes window.CoypuAudio.                                          */
+/* ════════════════════ Audio (Tone.js samples) ════════════════════
+   Loads audio files described by samples/manifest.json:
+     { "kick": ["a.wav","b.wav",...], "snare": [...], ... }
+   A track named #kick maps to folder "kick"; index n selects the
+   n-th file in that folder (positional, alphabetical — matches the
+   manifest order). Index wraps within the folder's length.
+
+   Exposes window.CoypuAudio:
+     load(basePath)            -> Promise, fetches manifest + buffers
+     folders()                 -> [folderName, ...]
+     count(folder)             -> number of samples in a folder
+     play(folder, idx, time, level, note)
+     ready()                   -> bool                                */
 (function (global) {
 
-  let kitReady = false;
-  const voices = {};
+  let manifest = null;          // { folder: [filename, ...] }
+  let players  = null;          // Tone.Players keyed "folder/idx"
+  let isReady  = false;
+  let base     = 'samples';     // base path, no trailing slash
 
-  function buildKit(){
-    voices.bd = (() => {
-      const s = new Tone.MembraneSynth({octaves:4, pitchDecay:.05}).toDestination();
-      return (t, note, lvl) => {
-        s.volume.value = Tone.gainToDb(lvl);
-        s.triggerAttackRelease(Tone.Frequency(note,"midi"), "8n", t);
-      };
-    })();
+  const key = (folder, idx) => `${folder}/${idx}`;
 
-    voices.snare = (() => {
-      const s = new Tone.NoiseSynth({noise:{type:'white'},
-        envelope:{attack:.001, decay:.13, sustain:0}}).toDestination();
-      return (t, note, lvl) => {
-        s.volume.value = Tone.gainToDb(lvl);
-        s.triggerAttackRelease("16n", t);
-      };
-    })();
+  async function load(basePath){
+    base = (basePath || 'samples').replace(/\/+$/, '');
+    // 1. fetch the manifest (GitHub Pages can't list dirs, so we need it)
+    const res = await fetch(`${base}/manifest.json`, { cache: 'no-cache' });
+    if(!res.ok) throw new Error(`manifest.json not found at ${base}/ (${res.status})`);
+    manifest = await res.json();
 
-    voices.hat = (() => {
-      const s = new Tone.MetalSynth({frequency:280,
-        envelope:{attack:.001, decay:.05, release:.01},
-        harmonicity:5.1, modulationIndex:32, resonance:4000, octaves:1.5}).toDestination();
-      return (t, note, lvl) => {
-        s.volume.value = Tone.gainToDb(lvl * 0.5);
-        s.triggerAttackRelease("32n", t);
-      };
-    })();
+    // 2. build the url map: one entry per file, keyed "folder/idx"
+    const urls = {};
+    for(const folder of Object.keys(manifest)){
+      manifest[folder].forEach((file, idx) => {
+        urls[key(folder, idx)] = `${base}/${folder}/${encodeURIComponent(file)}`;
+      });
+    }
 
-    // generic fallback for any other track name
-    voices._default = (() => {
-      const s = new Tone.Synth().toDestination();
-      return (t, note, lvl) => {
-        s.volume.value = Tone.gainToDb(lvl);
-        s.triggerAttackRelease(Tone.Frequency(note,"midi"), "16n", t);
-      };
-    })();
+    // 3. load every buffer into one Tone.Players; resolve when ready
+    await new Promise((resolve) => {
+      players = new Tone.Players(urls, resolve).toDestination();
+    });
 
-    kitReady = true;
+    isReady = true;
+    return { folders: Object.keys(manifest).length,
+             files: Object.values(manifest).reduce((n,a)=>n+a.length, 0) };
   }
 
-  const voiceFor = name => voices[name] || voices._default;
-  const ready = () => kitReady;
+  function count(folder){
+    return manifest && manifest[folder] ? manifest[folder].length : 0;
+  }
+  function folders(){ return manifest ? Object.keys(manifest) : []; }
 
-  global.CoypuAudio = { buildKit, voiceFor, ready };
+  function play(folder, idx, time, level, note){
+    if(!isReady || !manifest || !manifest[folder]) return;  // unknown track → silent
+    const n = manifest[folder].length;
+    const i = ((idx % n) + n) % n;                          // wrap, handle negatives
+    const p = players.player(key(folder, i));
+    p.volume.value = Tone.gainToDb(level == null ? 0.5 : level);
+    // note → playback rate: 60 = original, +12 = 2x (up octave), -12 = 0.5x.
+    // pitch and duration shift together (no time-stretch), like a sampler.
+    p.playbackRate = Math.pow(2, ((note == null ? 60 : note) - 60) / 12);
+    p.start(time);
+  }
+
+  const ready = () => isReady;
+
+  global.CoypuAudio = { load, play, count, folders, ready };
 
 })(window);
