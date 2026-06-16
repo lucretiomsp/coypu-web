@@ -3,14 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>coypu · tone sequencer</title>
+<title>Coypu-Web</title>
 <link rel="stylesheet" href="style.css">
+<!-- CodeMirror 5 (loads via plain <script>, no bundler) + Smalltalk mode -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/material-darker.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/smalltalk/smalltalk.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tone@14.8.49/build/Tone.js"></script>
 </head>
 <body>
 <header>
-  <h1>coypu<span class="dot">.</span>tone</h1>
-  <span class="sub">cascade syntax · polymetric · transpiler demo</span>
+  <h1>Coypu<span class="dot">-</span>Web</h1>
+  <span class="sub">get a flavour of the Pharo rodent for programming music on the fly</span>
 </header>
 
 <textarea id="code">16 downbeats to: #kick.
@@ -42,6 +47,20 @@
 <script src="src/transpiler.js"></script>
 <script src="src/audio.js"></script>
 <script src="src/scheduler.js"></script>
+<!-- turn the textarea into a CodeMirror editor (Smalltalk highlighting)
+     BEFORE app.js runs, so app.js picks up window.coypuEditor -->
+<script>
+  if(window.CodeMirror){
+    window.coypuEditor = CodeMirror.fromTextArea(document.getElementById('code'), {
+      mode: 'text/x-stsrc',          // Smalltalk
+      theme: 'material-darker',
+      lineNumbers: true,
+      lineWrapping: true,
+      tabSize: 2,
+      viewportMargin: Infinity,      // grow to content height
+    });
+  }
+</script>
 <script src="src/app.js"></script>
 </body>
 </html>
