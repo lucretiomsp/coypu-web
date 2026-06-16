@@ -1,12 +1,12 @@
 /* ════════════════════ Coypu transpiler ════════════════════
-   Two statement kinds:
-     (1) rhythm  → "<head> to: #name"     builds steps[], creates track
-     (2) cascade → "#name p: v; q: v ..." sets notes/durations/level
+   Three statement kinds:
+     (1) dirtstr  → "'pat' asDirtNotes/asDirtIndex to: #name"
+     (2) rhythm   → "<head> to: #name"     builds steps[], creates track
+     (3) cascade  → "#name p: v; q: v ..." sets notes/durations/level
    Defaults: note 60, duration 1 step, level 0.5.
    Exposes window.CoypuTranspiler.transpile(src) -> [track, ...]
-   where track = {sample, steps, notes, durs, level}.                 */
+   where track = {sample, steps, notes, durs, level, index}.          */
 (function (global) {
-
   const R = global.CoypuRhythms;
 
   function parseArray(str){
@@ -19,6 +19,61 @@
     throw new Error(`bad value: ${str}`);
   }
 
+  // ── asMidiNote: 'c4','f#3','bb2','60' → MIDI number ─────────────────
+  function asMidiNote(str) {
+    str = str.trim().toLowerCase();
+    if(/^\d+$/.test(str)) return Math.min(127, parseInt(str));
+    const noteMap = {c:0,d:2,e:4,f:5,g:7,a:9,b:11};
+    const m = str.match(/^([a-g])(#{1,2}|x|ss|bb?|ff?|s|f)?(-?\d+)$/);
+    if(!m) throw new Error(`bad note: ${str}`);
+    const base = noteMap[m[1]];
+    const accMap = {'##':2,'x':2,'ss':2,'#':1,'s':1,'bb':-2,'ff':-2,'b':-1,'f':-1};
+    const acc = m[2] ? (accMap[m[2]] ?? 0) : 0;
+    const oct = parseInt(m[3]);
+    return Math.max(0, Math.min(127, (oct + 1) * 12 + base + acc));
+  }
+
+  // ── parseDirtString: implements asDirtNotes / asDirtIndex semantics ──
+  function parseDirtString(pattern, method, sample) {
+    const tokens = pattern.split(',').map(s => s.trim()).filter(Boolean);
+    const gates = [], values = [], durs = [];
+
+    for (const tok of tokens) {
+      if (tok.includes('*')) {
+        const [val, nStr] = tok.split('*');
+        const n = parseInt(nStr);
+        const isRest = val.trim() === '~' || val.trim() === '-';
+        for (let i = 0; i < n; i++) {
+          gates.push(isRest ? 0 : 1);
+          if (!isRest) values.push(parseValue(val.trim(), method));
+          durs.push(1);
+        }
+      } else if (tok.includes('/')) {
+        const [val, nStr] = tok.split('/');
+        const divisor = parseInt(nStr);
+        const isRest = val.trim() === '~' || val.trim() === '-';
+        gates.push(isRest ? 0 : 1);
+        if (!isRest) values.push(parseValue(val.trim(), method));
+        durs.push(divisor);
+      } else {
+        const isRest = tok === '~' || tok === '-';
+        gates.push(isRest ? 0 : 1);
+        if (!isRest) values.push(parseValue(tok, method));
+        durs.push(1);
+      }
+    }
+
+    const track = { sample, steps: gates, notes:[60], durs, level:[0.5], index:[0] };
+    if (method === 'asDirtNotes') track.notes = values.length ? values : [60];
+    if (method === 'asDirtIndex') track.index = values.length ? values : [0];
+    return track;
+  }
+
+  function parseValue(str, method) {
+    if (method === 'asDirtIndex') return parseInt(str);
+    return asMidiNote(str);
+  }
+
   function buildSteps(head){
     let m;
     if((m = head.match(/^(\d+)\s+downbeats$/)))  return R.downbeats(+m[1]);
@@ -26,36 +81,39 @@
     if((m = head.match(/^(\d+)\s+quavers$/)))    return R.quavers(+m[1]);
     if((m = head.match(/^(\d+)\s+(?:trigs|semiquavers)$/))) return R.trigs(+m[1]);
     if((m = head.match(/^(\d+)\s+rests$/)))      return R.rests(+m[1]);
-
-    // "N name" → tile named base pattern to length N
     if((m = head.match(/^(\d+)\s+(\w+)$/))){
       const n = +m[1], name = m[2];
-      if(R.BASE[name])     return R.tile(R.BASE[name], n);
-      if(R.HEXRHYTHM[name]) return R.hexbeat(R.HEXRHYTHM[name]); // jungle*
+      if(R.BASE[name])      return R.tile(R.BASE[name], n);
+      if(R.HEXRHYTHM[name]) return R.hexbeat(R.HEXRHYTHM[name]);
       throw new Error(`unknown rhythm: ${name}`);
     }
-    // "#name asRhythm" → named rhythm at fixed 16 steps (16 perform: name)
     if((m = head.match(/^#(\w+)\s+asRhythm$/))){
       const name = m[1];
       if(R.BASE[name]) return R.tile(R.BASE[name], 16);
-      return R.rests(16);              // unknown → 16 rests, per source
+      return R.rests(16);
     }
-    // "'hex' hexbeat"
     if((m = head.match(/^'([0-9a-fA-F]+)'\s+hexbeat$/))) return R.hexbeat(m[1]);
-
     throw new Error(`can't parse: "${head}"`);
   }
 
   function transpile(src){
-    const tracks = {};       // name → track
-    const order = [];        // preserve declaration order
-
-    // A statement terminator is a '.' that is NOT a decimal point.
-    // Split on '.' unless it is immediately followed by a digit (decimal).
+    const tracks = {};
+    const order = [];
     const stmts = src.split(/\.(?![0-9])/).map(s=>s.trim()).filter(Boolean);
 
     for(const stmt of stmts){
-      // cascade?  starts with "#name" and contains no " to: #"
+
+      // ── (1) dirt string: 'pat' asDirtNotes/asDirtIndex to: #name ──
+      const dirtM = stmt.match(/^'([^']*)'\s+(asDirtNotes|asDirtIndex)\s+to:\s*#(\w+)$/s);
+      if(dirtM){
+        const [, pattern, method, sample] = dirtM;
+        const track = parseDirtString(pattern, method, sample);
+        if(!tracks[sample]) order.push(sample);
+        tracks[sample] = track;
+        continue;
+      }
+
+      // ── (2) cascade: #name sel: val; sel: val ... ──
       const casc = stmt.match(/^#(\w+)\s+(.+)$/s);
       if(casc && !/\bto:\s*#/.test(stmt)){
         const name = casc[1];
@@ -72,7 +130,8 @@
         }
         continue;
       }
-      // rhythm statement: "<head> to: #sample"
+
+      // ── (3) rhythm: <head> to: #sample ──
       const m = stmt.match(/^(.+?)\s+to:\s*#(\w+)$/s);
       if(!m) throw new Error(`can't parse: "${stmt}"`);
       const head = m[1].trim(), sample = m[2];
@@ -84,5 +143,4 @@
   }
 
   global.CoypuTranspiler = { transpile, buildSteps, parseArray };
-
 })(window);
