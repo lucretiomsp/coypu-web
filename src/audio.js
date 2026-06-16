@@ -29,22 +29,42 @@
 
     // 2. build the url map: one entry per file, keyed "folder/idx".
     //    Use raw filenames — Tone/the browser encodes once on fetch.
-    //    Manually encoding here causes double-encoding (space -> %2520).
     const urls = {};
     for(const folder of Object.keys(manifest)){
       manifest[folder].forEach((file, idx) => {
-       urls[key(folder, idx)] = `${base}/${folder}/${file}`;
+        urls[key(folder, idx)] = `${base}/${folder}/${file}`;
       });
     }
 
-    // 3. load every buffer into one Tone.Players; resolve when ready
-    await new Promise((resolve) => {
-      players = new Tone.Players(urls, resolve).toDestination();
+    // 3. load buffers in small batches so we don't overwhelm the
+    //    server. GitHub Pages drops connections (ERR_HTTP2_PROTOCOL_ERROR)
+    //    when hit with hundreds of parallel requests. We settle each
+    //    load (success or failure) and keep going so one bad/missing
+    //    file can't mute everything. Players.add(name, url, cb) loads
+    //    the url and fires cb when ready.
+    players = new Tone.Players().toDestination();
+    const entries = Object.entries(urls);
+    const BATCH = 8;                       // concurrent loads at a time
+    let ok = 0, failed = [];
+
+    const loadOne = ([k, url]) => new Promise((resolve) => {
+      let done = false;
+      const finish = (good) => { if(done) return; done = true; good ? ok++ : failed.push(url); resolve(); };
+      try {
+        players.add(k, url, () => finish(true));
+      } catch(e){ finish(false); return; }
+      // safety timeout so a stalled request can't hang the batch forever
+      setTimeout(() => finish(players.has(k)), 15000);
     });
 
+    for(let i = 0; i < entries.length; i += BATCH){
+      await Promise.all(entries.slice(i, i + BATCH).map(loadOne));
+    }
+
+    if(failed.length) console.warn(`coypu: ${failed.length} samples failed to load`, failed.slice(0, 10));
     isReady = true;
     return { folders: Object.keys(manifest).length,
-             files: Object.values(manifest).reduce((n,a)=>n+a.length, 0) };
+             files: entries.length, loaded: ok, failed: failed.length };
   }
 
   function count(folder){
@@ -56,7 +76,9 @@
     if(!isReady || !manifest || !manifest[folder]) return;  // unknown track → silent
     const n = manifest[folder].length;
     const i = ((idx % n) + n) % n;                          // wrap, handle negatives
-    const p = players.player(key(folder, i));
+    const k = key(folder, i);
+    if(!players.has(k)) return;                             // buffer failed to load → silent
+    const p = players.player(k);
     p.volume.value = Tone.gainToDb(level == null ? 0.5 : level);
     // note → playback rate: 60 = original, +12 = 2x (up octave), -12 = 0.5x.
     // pitch and duration shift together (no time-stretch), like a sampler.
