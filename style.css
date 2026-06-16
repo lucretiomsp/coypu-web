@@ -56,3 +56,14 @@ label.tempo input{
 @media (prefers-reduced-motion: reduce){
   button:active{transform:none}
 }
+
+/* CodeMirror editor — match the page frame */
+.CodeMirror{
+  height:auto;
+  border:1px solid var(--line);
+  border-radius:6px;
+  font-family:var(--mono);
+  font-size:14px;
+  line-height:1.7;
+}
+.CodeMirror-scroll{ min-height:170px; }
