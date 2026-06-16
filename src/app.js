@@ -71,11 +71,10 @@
     if(Audio.ready()) return true;
     if(loadingStarted) return false;       // already loading, ignore re-clicks
     loadingStarted = true;
-    setStatus('loading samples…');
+    setStatus('loading…');
     try {
       const info = await Audio.load('turboSamplesWeb');
-      const f = info.failed ? `, ${info.failed} failed` : '';
-      setStatus(`loaded ${info.loaded}/${info.files} samples in ${info.folders} folders${f}`);
+      setStatus(`ready · ${info.files} samples across ${info.folders} folders (loaded on demand)`);
       return true;
     } catch(e){
       loadingStarted = false;              // allow retry
@@ -89,6 +88,7 @@
     const ok = await ensureSamples();
     if(!ok) return;
     const tracks = compile(); if(!tracks) return;
+    Audio.prefetch(tracks);                // load just the samples this pattern uses
     // warn about tracks whose folder has no samples
     const missing = tracks.filter(t => Audio.count(t.sample) === 0).map(t => '#'+t.sample);
     Tone.Transport.bpm.value = +$('bpm').value || 110;
