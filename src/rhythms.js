@@ -49,6 +49,10 @@
 
   global.CoypuRhythms = {
     BASE, HEXRHYTHM, tile, downbeats, upbeats, quavers, trigs, rests, hexbeat,
+    // names for the reference panel
+    namedRhythms: Object.keys(BASE).sort(),
+    hexRhythms: Object.keys(HEXRHYTHM).sort(),
+    generators: ['downbeats', 'upbeats', 'quavers', 'trigs', 'rests'],
   };
 
 })(window);
