@@ -1,12 +1,18 @@
-/* ════════════════════ Audio (Tone.js samples) ════════════════════
-   Loads audio files described by samples/manifest.json:
-     { "kick": ["a.wav","b.wav",...], "snare": [...], ... }
+/* ════════════════════ Audio (Tone.js samples, lazy) ════════════════════
+   Loads audio files described by manifest.json:
+     { "kick": ["a.m4a","b.m4a",...], "snare": [...], ... }
    A track named #kick maps to folder "kick"; index n selects the
    n-th file in that folder (positional, alphabetical — matches the
    manifest order). Index wraps within the folder's length.
 
+   LAZY LOADING: load() only fetches the manifest (instant). Each sample's
+   audio buffer is fetched on demand the first time it's actually played,
+   then cached so subsequent hits are instant. The very first trigger of a
+   not-yet-loaded sample is skipped silently while it loads — in a looping
+   pattern it starts sounding a cycle later. (Same behaviour as Strudel.)
+
    Exposes window.CoypuAudio:
-     load(basePath)            -> Promise, fetches manifest + buffers
+     load(basePath)            -> Promise, fetches manifest only
      folders()                 -> [folderName, ...]
      count(folder)             -> number of samples in a folder
      play(folder, idx, time, level, note)
@@ -14,57 +20,41 @@
 (function (global) {
 
   let manifest = null;          // { folder: [filename, ...] }
-  let players  = null;          // Tone.Players keyed "folder/idx"
+  let players  = null;          // Tone.Players, buffers added on demand
   let isReady  = false;
   let base     = 'samples';     // base path, no trailing slash
 
+  // per-buffer load state, keyed "folder/idx":
+  //   undefined = never requested, 'loading', 'loaded', 'failed'
+  const state = {};
+
   const key = (folder, idx) => `${folder}/${idx}`;
+  const urlFor = (folder, i) => `${base}/${folder}/${manifest[folder][i]}`;
 
   async function load(basePath){
     base = (basePath || 'samples').replace(/\/+$/, '');
-    // 1. fetch the manifest (GitHub Pages can't list dirs, so we need it)
+    // fetch only the manifest — GitHub Pages can't list dirs, so we need it.
+    // Audio buffers are loaded lazily, on first play (see ensureBuffer).
     const res = await fetch(`${base}/manifest.json`, { cache: 'no-cache' });
     if(!res.ok) throw new Error(`manifest.json not found at ${base}/ (${res.status})`);
     manifest = await res.json();
-
-    // 2. build the url map: one entry per file, keyed "folder/idx".
-    //    Use raw filenames — Tone/the browser encodes once on fetch.
-    const urls = {};
-    for(const folder of Object.keys(manifest)){
-      manifest[folder].forEach((file, idx) => {
-        urls[key(folder, idx)] = `${base}/${folder}/${file}`;
-      });
-    }
-
-    // 3. load buffers in small batches so we don't overwhelm the
-    //    server. GitHub Pages drops connections (ERR_HTTP2_PROTOCOL_ERROR)
-    //    when hit with hundreds of parallel requests. We settle each
-    //    load (success or failure) and keep going so one bad/missing
-    //    file can't mute everything. Players.add(name, url, cb) loads
-    //    the url and fires cb when ready.
     players = new Tone.Players().toDestination();
-    const entries = Object.entries(urls);
-    const BATCH = 8;                       // concurrent loads at a time
-    let ok = 0, failed = [];
-
-    const loadOne = ([k, url]) => new Promise((resolve) => {
-      let done = false;
-      const finish = (good) => { if(done) return; done = true; good ? ok++ : failed.push(url); resolve(); };
-      try {
-        players.add(k, url, () => finish(true));
-      } catch(e){ finish(false); return; }
-      // safety timeout so a stalled request can't hang the batch forever
-      setTimeout(() => finish(players.has(k)), 15000);
-    });
-
-    for(let i = 0; i < entries.length; i += BATCH){
-      await Promise.all(entries.slice(i, i + BATCH).map(loadOne));
-    }
-
-    if(failed.length) console.warn(`coypu: ${failed.length} samples failed to load`, failed.slice(0, 10));
     isReady = true;
-    return { folders: Object.keys(manifest).length,
-             files: entries.length, loaded: ok, failed: failed.length };
+    const files = Object.values(manifest).reduce((n,a)=>n+a.length, 0);
+    return { folders: Object.keys(manifest).length, files, lazy: true };
+  }
+
+  // Kick off loading one buffer if we haven't already. Non-blocking:
+  // returns nothing; play() just checks state on each hit.
+  function ensureBuffer(folder, i){
+    const k = key(folder, i);
+    if(state[k]) return;                  // already loading / loaded / failed
+    state[k] = 'loading';
+    try {
+      players.add(k, urlFor(folder, i), () => { state[k] = 'loaded'; });
+    } catch(e){
+      state[k] = 'failed';
+    }
   }
 
   function count(folder){
@@ -72,12 +62,35 @@
   }
   function folders(){ return manifest ? Object.keys(manifest) : []; }
 
+  // Prefetch exactly the buffers a set of tracks will use, so the pattern
+  // is audible from the first cycle (no silent first hit) while still not
+  // loading the hundreds of unused samples. Called by app.js after compile.
+  function prefetch(tracks){
+    if(!isReady || !manifest) return;
+    for(const t of tracks){
+      if(!manifest[t.sample]) continue;
+      const n = manifest[t.sample].length;
+      if(n === 0) continue;
+      // load every index this track references via its index: array
+      const idxs = (t.index && t.index.length) ? t.index : [0];
+      for(const raw of idxs){
+        const i = ((raw % n) + n) % n;
+        ensureBuffer(t.sample, i);
+      }
+    }
+  }
+
   function play(folder, idx, time, level, note){
     if(!isReady || !manifest || !manifest[folder]) return;  // unknown track → silent
     const n = manifest[folder].length;
+    if(n === 0) return;
     const i = ((idx % n) + n) % n;                          // wrap, handle negatives
     const k = key(folder, i);
-    if(!players.has(k)) return;                             // buffer failed to load → silent
+
+    if(state[k] !== 'loaded'){
+      ensureBuffer(folder, i);   // start loading; this hit is silent
+      return;                    // next time it fires (a cycle later) it'll play
+    }
     const p = players.player(k);
     p.volume.value = Tone.gainToDb(level == null ? 0.5 : level);
     // note → playback rate: 60 = original, +12 = 2x (up octave), -12 = 0.5x.
@@ -88,6 +101,6 @@
 
   const ready = () => isReady;
 
-  global.CoypuAudio = { load, play, count, folders, ready };
+  global.CoypuAudio = { load, play, count, folders, ready, prefetch };
 
 })(window);
