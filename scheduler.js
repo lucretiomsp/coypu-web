@@ -17,17 +17,18 @@
 
   function schedule(tracks, onStep){
     clear();
-    tracks.forEach((t, idx) => {
+    tracks.forEach((t, trackIdx) => {
       let step = 0, hit = 0;     // step = rhythm position; hit = nth active event
       const id = Tone.Transport.scheduleRepeat((time) => {
         const i = step % t.steps.length;
         if(t.steps[i]){
-          const note  = t.notes[hit % t.notes.length];
-          const level = t.level[hit % t.level.length];
-          A.voiceFor(t.sample)(time, note, level);
+          const sampleIdx = t.index[hit % t.index.length];
+          const level     = t.level[hit % t.level.length];
+          const note      = t.notes[hit % t.notes.length];
+          A.play(t.sample, sampleIdx, time, level, note);   // folder = track name
           hit++;
         }
-        if(onStep) Tone.Draw.schedule(() => onStep(idx, i, time), time);
+        if(onStep) Tone.Draw.schedule(() => onStep(trackIdx, i, time), time);
         step++;
       }, "16n");
       scheduled.push(id);
