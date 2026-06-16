@@ -11,6 +11,15 @@
     const s = $('status'); s.textContent = m; s.classList.toggle('err', err);
   };
 
+  // The code editor may be a CodeMirror instance (window.coypuEditor)
+  // or a plain <textarea> fallback. Read through one accessor.
+  const getCode = () =>
+    window.coypuEditor ? window.coypuEditor.getValue() : $('code').value;
+  const onCodeChange = (fn) => {
+    if(window.coypuEditor) window.coypuEditor.on('change', fn);
+    else $('code').addEventListener('input', fn);
+  };
+
   let laneEls = [];   // [trackIndex] → [stepDiv, ...]
 
   function renderLanes(tracks){
@@ -47,7 +56,7 @@
 
   function compile(){
     try {
-      const tracks = transpile($('code').value);
+      const tracks = transpile(getCode());
       renderLanes(tracks);
       return tracks;
     } catch(e){
@@ -102,7 +111,7 @@
     Tone.Transport.bpm.value = +$('bpm').value || 110;
   });
 
-  $('code').addEventListener('input', () => { compile(); });
+  onCodeChange(() => { compile(); });
 
   // initial render (no audio until first play)
   compile();
