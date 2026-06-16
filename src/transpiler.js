@@ -62,12 +62,13 @@
         const t = tracks[name];
         if(!t) throw new Error(`#${name} has no rhythm yet`);
         for(const part of casc[2].split(';')){
-          const kv = part.trim().match(/^(notes|durations|level):\s*(.+)$/);
+          const kv = part.trim().match(/^(notes|durations|level|index):\s*(.+)$/);
           if(!kv) throw new Error(`bad cascade: "${part.trim()}"`);
           const [,sel,val] = kv;
           if(sel==='notes')     t.notes = parseArray(val);
           if(sel==='durations') t.durs  = parseArray(val);
           if(sel==='level')     t.level = parseArray(val);
+          if(sel==='index')     t.index = parseArray(val);
         }
         continue;
       }
@@ -77,7 +78,7 @@
       const head = m[1].trim(), sample = m[2];
       const steps = buildSteps(head);
       if(!tracks[sample]) order.push(sample);
-      tracks[sample] = {sample, steps, notes:[60], durs:[1], level:[0.5]};
+      tracks[sample] = {sample, steps, notes:[60], durs:[1], level:[0.5], index:[0]};
     }
     return order.map(n => tracks[n]);
   }
