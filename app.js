@@ -22,8 +22,8 @@
       const name = document.createElement('span'); name.className = 'name';
       name.textContent = '#' + t.sample;
       const meta = document.createElement('span'); meta.className = 'meta';
-      meta.textContent = `${t.steps.length} steps · notes ${t.notes.join(',')} · `
-                       + `dur ${t.durs.join(',')} · lvl ${t.level.join(',')}`;
+      meta.textContent = `${t.steps.length} steps · index ${t.index.join(',')} · `
+                       + `notes ${t.notes.join(',')} · lvl ${t.level.join(',')}`;
       head.append(name, meta);
 
       const steps = document.createElement('div'); steps.className = 'steps';
@@ -56,15 +56,38 @@
     }
   }
 
+  let loadingStarted = false;
+
+  async function ensureSamples(){
+    if(Audio.ready()) return true;
+    if(loadingStarted) return false;       // already loading, ignore re-clicks
+    loadingStarted = true;
+    setStatus('loading samples…');
+    try {
+      const info = await Audio.load('turboSamplesWeb');
+      setStatus(`loaded ${info.files} samples in ${info.folders} folders`);
+      return true;
+    } catch(e){
+      loadingStarted = false;              // allow retry
+      setStatus(`sample load failed: ${e.message}`, true);
+      return false;
+    }
+  }
+
   $('play').addEventListener('click', async () => {
-    await Tone.start();                 // unlock audio on user gesture
-    if(!Audio.ready()) Audio.buildKit();
+    await Tone.start();                    // unlock audio on user gesture
+    const ok = await ensureSamples();
+    if(!ok) return;
     const tracks = compile(); if(!tracks) return;
+    // warn about tracks whose folder has no samples
+    const missing = tracks.filter(t => Audio.count(t.sample) === 0).map(t => '#'+t.sample);
     Tone.Transport.bpm.value = +$('bpm').value || 110;
     Scheduler.schedule(tracks, moveCursor);
     Tone.Transport.start();
-    setStatus(`playing · ${tracks.length} tracks · `
-            + `realign every ${Scheduler.realignSteps(tracks)} steps`);
+    let msg = `playing · ${tracks.length} tracks · `
+            + `realign every ${Scheduler.realignSteps(tracks)} steps`;
+    if(missing.length) msg += ` · no samples for ${missing.join(' ')}`;
+    setStatus(msg);
   });
 
   $('stop').addEventListener('click', () => {
