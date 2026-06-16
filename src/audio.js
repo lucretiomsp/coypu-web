@@ -62,6 +62,18 @@
   }
   function folders(){ return manifest ? Object.keys(manifest) : []; }
 
+  // Fetch the manifest just to read folder names + counts (for the
+  // reference panel), without setting up players or marking ready.
+  // Safe to call before load(); reuses the manifest if already fetched.
+  async function peekManifest(basePath){
+    if(manifest) return manifest;
+    const b = (basePath || base).replace(/\/+$/, '');
+    const res = await fetch(`${b}/manifest.json`, { cache: 'no-cache' });
+    if(!res.ok) throw new Error(`manifest.json not found at ${b}/ (${res.status})`);
+    manifest = await res.json();
+    return manifest;
+  }
+
   // Prefetch exactly the buffers a set of tracks will use, so the pattern
   // is audible from the first cycle (no silent first hit) while still not
   // loading the hundreds of unused samples. Called by app.js after compile.
@@ -101,6 +113,6 @@
 
   const ready = () => isReady;
 
-  global.CoypuAudio = { load, play, count, folders, ready, prefetch };
+  global.CoypuAudio = { load, play, count, folders, ready, prefetch, peekManifest };
 
 })(window);
