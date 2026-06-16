@@ -1,5 +1,5 @@
 /* ════════════════════ Coypu transpiler ════════════════════
-   Three statement kinds:
+   Statement kinds:
      (1) dirtstr  → "'pat' asDirtNotes/asDirtIndex to: #name"
      (2) rhythm   → "<head> to: #name"     builds steps[], creates track
      (3) cascade  → "#name p: v; q: v ..." sets notes/durations/level
@@ -10,7 +10,6 @@
   const R = global.CoypuRhythms;
 
   function parseArray(str){
-    // "#(38 38 40)"  or  single number "36"
     str = str.trim();
     const m = str.match(/^#\(([^)]*)\)$/);
     if(m) return m[1].trim().split(/\s+/).map(Number);
@@ -19,7 +18,6 @@
     throw new Error(`bad value: ${str}`);
   }
 
-  // ── asMidiNote: 'c4','f#3','bb2','60' → MIDI number ─────────────────
   function asMidiNote(str) {
     str = str.trim().toLowerCase();
     if(/^\d+$/.test(str)) return Math.min(127, parseInt(str));
@@ -33,11 +31,9 @@
     return Math.max(0, Math.min(127, (oct + 1) * 12 + base + acc));
   }
 
-  // ── parseDirtString: implements asDirtNotes / asDirtIndex semantics ──
   function parseDirtString(pattern, method, sample) {
     const tokens = pattern.split(',').map(s => s.trim()).filter(Boolean);
     const gates = [], values = [], durs = [];
-
     for (const tok of tokens) {
       if (tok.includes('*')) {
         const [val, nStr] = tok.split('*');
@@ -62,7 +58,6 @@
         durs.push(1);
       }
     }
-
     const track = { sample, steps: gates, notes:[60], durs, level:[0.5], index:[0] };
     if (method === 'asDirtNotes') track.notes = values.length ? values : [60];
     if (method === 'asDirtIndex') track.index = values.length ? values : [0];
@@ -74,6 +69,15 @@
     return asMidiNote(str);
   }
 
+  function randomTrigs(n) {
+    return Array.from({length: n}, () => Math.random() < 0.5 ? 1 : 0);
+  }
+
+  function randomTrigsWithProbability(n, prob) {
+    const p = prob / 100;
+    return Array.from({length: n}, () => Math.random() < p ? 1 : 0);
+  }
+
   function buildSteps(head){
     let m;
     if((m = head.match(/^(\d+)\s+downbeats$/)))  return R.downbeats(+m[1]);
@@ -81,6 +85,9 @@
     if((m = head.match(/^(\d+)\s+quavers$/)))    return R.quavers(+m[1]);
     if((m = head.match(/^(\d+)\s+(?:trigs|semiquavers)$/))) return R.trigs(+m[1]);
     if((m = head.match(/^(\d+)\s+rests$/)))      return R.rests(+m[1]);
+    if((m = head.match(/^(\d+)\s+randomTrigs$/))) return randomTrigs(+m[1]);
+    if((m = head.match(/^(\d+)\s+randomTrigsWithProbability:\s*(\d+)$/)))
+      return randomTrigsWithProbability(+m[1], +m[2]);
     if((m = head.match(/^(\d+)\s+(\w+)$/))){
       const n = +m[1], name = m[2];
       if(R.BASE[name])      return R.tile(R.BASE[name], n);
@@ -132,9 +139,11 @@
       }
 
       // ── (3) rhythm: <head> to: #sample ──
-      const m = stmt.match(/^(.+?)\s+to:\s*#(\w+)$/s);
-      if(!m) throw new Error(`can't parse: "${stmt}"`);
-      const head = m[1].trim(), sample = m[2];
+      // Split on LAST "to: #" to handle "randomTrigsWithProbability: N to: #name"
+      const toIdx = stmt.lastIndexOf(' to: #');
+      if(toIdx === -1) throw new Error(`can't parse: "${stmt}"`);
+      const head = stmt.slice(0, toIdx).trim();
+      const sample = stmt.slice(toIdx + 6).trim();  // skip " to: #"
       const steps = buildSteps(head);
       if(!tracks[sample]) order.push(sample);
       tracks[sample] = {sample, steps, notes:[60], durs:[1], level:[0.5], index:[0]};
