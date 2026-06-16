@@ -18,28 +18,44 @@
   <span class="sub">get a flavour of the Pharo rodent for programming music on the fly</span>
 </header>
 
-<textarea id="code">16 downbeats to: #kick.
+<div class="workspace">
+
+  <details class="panel" id="samplesPanel" open>
+    <summary>Samples <span class="hint" id="samplesHint"></span></summary>
+    <ul class="reflist" id="sampleList"><li class="muted">loading…</li></ul>
+  </details>
+
+  <div class="center">
+    <textarea id="code">16 downbeats to: #kick.
 #kick level: 0.9.
 #rumba asRhythm to: #snare.
 #snare index: #(0 0 1); level: 0.6.
 '12caf1213' hexbeat to: #ch.
 #ch index: 2; notes: #(60 72 48); level: 0.4.</textarea>
 
-<div class="bar">
-  <button id="play">▶ play</button>
-  <button id="stop" class="ghost">■ stop</button>
-  <label class="tempo">bpm <input id="bpm" type="number" value="110" min="40" max="240"></label>
-</div>
-<div id="status">tap play to start audio</div>
+    <div class="bar">
+      <button id="play">▶ play</button>
+      <button id="stop" class="ghost">■ stop</button>
+      <label class="tempo">bpm <input id="bpm" type="number" value="110" min="40" max="240"></label>
+    </div>
+    <div id="status">tap play to start audio</div>
 
-<div class="lanes" id="lanes"></div>
+    <div class="lanes" id="lanes"></div>
 
-<div class="legend">
-  <b>rhythm statements</b> create a sequencer bound to a track (folder):<br>
-  <code>16 downbeats to: #kick</code> · <code>#rumba asRhythm to: #snare</code> · <code>'12caf1213' hexbeat to: #ch</code><br>
-  <b>parameter cascades</b> attach to an existing track:<br>
-  <code>#ch index: 2; notes: #(60 72 48); level: 0.4</code><br>
-  <b>index:</b> picks the sample in the folder (positional). <b>notes:</b> sets playback pitch — 60 = original, 72 = octave up (2×), 48 = octave down. defaults — index <b>0</b>, note <b>60</b>, level <b>0.5</b>. arrays cycle per hit.
+    <div class="legend">
+      <b>rhythm statements</b> create a sequencer bound to a track (folder):<br>
+      <code>16 downbeats to: #kick</code> · <code>#rumba asRhythm to: #snare</code> · <code>'12caf1213' hexbeat to: #ch</code><br>
+      <b>parameter cascades</b> attach to an existing track:<br>
+      <code>#ch index: 2; notes: #(60 72 48); level: 0.4</code><br>
+      <b>index:</b> picks the sample in the folder (positional). <b>notes:</b> sets playback pitch — 60 = original, 72 = octave up (2×), 48 = octave down. defaults — index <b>0</b>, note <b>60</b>, level <b>0.5</b>. arrays cycle per hit.
+    </div>
+  </div>
+
+  <details class="panel" id="rhythmsPanel" open>
+    <summary>Rhythms</summary>
+    <div class="reflist" id="rhythmList"></div>
+  </details>
+
 </div>
 
 <!-- modules load in dependency order; app.js wires everything -->
