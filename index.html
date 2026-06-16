@@ -13,12 +13,12 @@
   <span class="sub">cascade syntax · polymetric · transpiler demo</span>
 </header>
 
-<textarea id="code">16 downbeats to: #bd.
-#bd level: 0.9.
+<textarea id="code">16 downbeats to: #kick.
+#kick level: 0.9.
 #rumba asRhythm to: #snare.
-#snare notes: #(38 38 40); durations: #(1 1 2); level: 0.6.
-'12caf1213' hexbeat to: #hat.
-#hat notes: 64; level: 0.4.</textarea>
+#snare index: #(0 0 1); level: 0.6.
+'12caf1213' hexbeat to: #ch.
+#ch index: 2; notes: #(60 72 48); level: 0.4.</textarea>
 
 <div class="bar">
   <button id="play">▶ play</button>
@@ -30,11 +30,11 @@
 <div class="lanes" id="lanes"></div>
 
 <div class="legend">
-  <b>rhythm statements</b> create a sequencer bound to a track:<br>
-  <code>16 downbeats to: #bd</code> · <code>#rumba asRhythm to: #snare</code> · <code>'12caf1213' hexbeat to: #hat</code><br>
+  <b>rhythm statements</b> create a sequencer bound to a track (folder):<br>
+  <code>16 downbeats to: #kick</code> · <code>#rumba asRhythm to: #snare</code> · <code>'12caf1213' hexbeat to: #ch</code><br>
   <b>parameter cascades</b> attach to an existing track:<br>
-  <code>#snare notes: #(38 38 40); durations: #(1 1 2); level: 0.6</code><br>
-  defaults — note <b>60</b>, duration <b>1</b> step, level <b>0.5</b>. arrays cycle per hit, independently.
+  <code>#ch index: 2; notes: #(60 72 48); level: 0.4</code><br>
+  <b>index:</b> picks the sample in the folder (positional). <b>notes:</b> sets playback pitch — 60 = original, 72 = octave up (2×), 48 = octave down. defaults — index <b>0</b>, note <b>60</b>, level <b>0.5</b>. arrays cycle per hit.
 </div>
 
 <!-- modules load in dependency order; app.js wires everything -->
