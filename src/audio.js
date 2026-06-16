@@ -27,11 +27,13 @@
     if(!res.ok) throw new Error(`manifest.json not found at ${base}/ (${res.status})`);
     manifest = await res.json();
 
-    // 2. build the url map: one entry per file, keyed "folder/idx"
+    // 2. build the url map: one entry per file, keyed "folder/idx".
+    //    Use raw filenames — Tone/the browser encodes once on fetch.
+    //    Manually encoding here causes double-encoding (space -> %2520).
     const urls = {};
     for(const folder of Object.keys(manifest)){
       manifest[folder].forEach((file, idx) => {
-        urls[key(folder, idx)] = `${base}/${folder}/${encodeURIComponent(file)}`;
+        urls[key(folder, idx)] = `${base}/${folder}/${file}`;
       });
     }
 
